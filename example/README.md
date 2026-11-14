@@ -16,6 +16,8 @@ Sources worth copying:
 
 - `lib/sources/web_audio_speech_source.dart`: a `LipSyncSource` over Web
   Audio, the pattern for any player or streamed speech.
+- `lib/sources/mic_speech_source.dart`: a `LipSyncSource` over the
+  microphone, so the avatar mirrors whoever talks (used by the live demo).
 - `lib/sources/clock_speech_source.dart`: the smallest `LipSyncSource`, for
   tests and previews.
 
