@@ -16,3 +16,9 @@ coverage/
 
 # Test fixture photo and its landmarks stay in the repository only.
 test/fixtures/
+
+# Live demo app (deployed separately; its photos are not part of the package).
+demo/
+
+# README media (served from GitHub, not part of the package).
+doc/

@@ -1,0 +1,57 @@
+name: Deploy demo
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'demo/**'
+      - 'lib/**'
+      - 'example/lib/**'
+      - '.github/workflows/deploy-demo.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-demo
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: demo
+    defaults:
+      run:
+        working-directory: demo
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter build web --release
+
+      - name: Stamp build version
+        run: printf '{"commit":"%s"}\n' "$GITHUB_SHA" > build/web/version.json
+
+      - name: Deploy
+        env:
+          SERVICE_ACCOUNT: ${{ secrets.HOSTING_SERVICE_ACCOUNT }}
+          PROJECT: ${{ secrets.HOSTING_PROJECT }}
+          SITE: ${{ secrets.HOSTING_SITE }}
+        run: |
+          if [ -z "$SERVICE_ACCOUNT" ] || [ -z "$PROJECT" ] || [ -z "$SITE" ]; then
+            echo "::notice::Hosting is not configured for this repository; skipping deploy."
+            exit 0
+          fi
+          printf '%s' "$SERVICE_ACCOUNT" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          npx -y firebase-tools@15 target:apply hosting lipsync "$SITE" \
+            --project "$PROJECT" > /dev/null
+          npx -y firebase-tools@15 deploy --only hosting:lipsync \
+            --project "$PROJECT" --non-interactive

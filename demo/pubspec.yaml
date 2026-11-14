@@ -1,0 +1,29 @@
+name: avatar_lipsync_demo
+description: Live demo of avatar_lipsync (lipsync.azanello.com).
+publish_to: none
+version: 1.0.0
+
+environment:
+  sdk: ^3.13.0
+  flutter: ">=3.47.0"
+
+dependencies:
+  avatar_lipsync:
+    path: ..
+  avatar_lipsync_example:
+    path: ../example
+  flutter:
+    sdk: flutter
+  material_ui: ^1.11.0
+  web: ^1.1.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  very_good_analysis: ^11.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/micaela.jpg
+    - assets/portrait_1880.jpg

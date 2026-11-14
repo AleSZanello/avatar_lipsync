@@ -1,0 +1,11 @@
+include: package:very_good_analysis/analysis_options.yaml
+analyzer:
+  exclude:
+    - build/**
+    - web/**
+linter:
+  rules:
+    public_member_api_docs: false
+    # Same style as the package: classic constructor names.
+    unnecessary_type_name_in_constructor: false
+    empty_container_bodies: false
