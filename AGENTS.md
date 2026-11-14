@@ -33,6 +33,7 @@ Public API (everything is exported from `package:avatar_lipsync/avatar_lipsync.d
 | `SpeechChunk` | Mono `Float32List` samples in -1..1, `startTime` (s, player clock) and `sampleRate`. |
 | `LipSyncAvatar` | Drawn face. Needs `source` and `colors` (`LipSyncAvatarColors`). |
 | `PhotoLipSyncAvatar` | Rigged photo (web). Needs `source` and `imageAsset`. Takes `fallback`, `detector`, `onFrame`, `showDebug` and `imageLoader`. |
+| `RigOverlay`, `RigRegion` | Draws the photo rig (mesh, landmarks, heat map of live motion or a region's weights) on `PhotoLipSyncAvatar`. |
 | `LipSyncFrame` | `level`, `gap`, `jaw`, `width`, `round`, `press`, `viseme`, `speaking`, and `mouthOpen` (0..1). |
 | `Viseme` | `rest`, `a`, `e`, `i`, `o`, `u`, `fricative`. `index` is stable for a Rive `viseme` input. |
 | `LipSyncDriver` | Source plus analyzer without widgets: `tick(dt)` returns a `LipSyncFrame`. |
@@ -64,6 +65,10 @@ Reference implementations live in `example/lib/sources/`:
 - `web_audio_speech_source.dart` plays and schedules over Web Audio. Copy it
   for streamed TTS or voice agents: call `play(chunkSamples, rate)` for every
   network chunk as it arrives.
+- `mic_speech_source.dart` captures the microphone with an AudioWorklet
+  (no playback, no echo): the avatar mirrors whoever talks. Create and
+  resume the `AudioContext` inside the click handler, before awaiting the
+  permission prompt, or `resume()` can hang once the gesture expires.
 - `clock_speech_source.dart` keeps a `Stopwatch` clock and plays nothing. Use
   it for tests, previews, or when another player plays the sound but you
   still have the samples.
@@ -146,6 +151,15 @@ Tests and tools:
 - `AVATAR_CALIBRATION_WAV=voice.wav flutter test test/src/viseme_calibration_test.dart`
   prints viseme statistics for real speech. Use it after changing
   `LipSyncAnalyzer` thresholds.
+
+Live demo (`demo/`, https://lipsync.azanello.com):
+- A separate Flutter web app (not published; excluded by `.pubignore`). It
+  depends on the package and on `example/` for the microphone source.
+- Its photo belongs to a real person who allowed this use: keep it in
+  `demo/` and `doc/media/` only, credited as @micaela_valente.
+- `doc/media/` holds the README GIFs and MP4s (also excluded from the
+  package). They were recorded from the demo with Chrome's fake microphone
+  (`--use-file-for-fake-audio-capture`).
 
 Releasing (automated, `.github/workflows/publish.yml`):
 1. Bump `version` in `pubspec.yaml` and add a `CHANGELOG.md` entry.

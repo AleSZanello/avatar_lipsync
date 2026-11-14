@@ -1,3 +1,14 @@
+## 0.3.0
+
+- `RigOverlay` on `PhotoLipSyncAvatar`: draws the triangle mesh, the 478
+  landmarks and a heat map, either of live motion (with the head's own
+  motion taken out) or of a region's weights (`RigRegion`: jaw, lips,
+  corners, eyelids, brows, irises, head).
+- `FaceRig.weights(region)` and `FaceRig.landmarkCount`.
+- Example: `MicSpeechSource`, a `LipSyncSource` over the microphone.
+- Live demo at https://lipsync.azanello.com (in `demo/`, not part of the
+  package).
+
 ## 0.2.0
 
 - `pcm16ToSamples`: converts little-endian 16-bit PCM, as OpenAI Realtime

@@ -4,6 +4,15 @@ Real-time lip sync for Flutter: a talking avatar driven by streamed speech.
 Show a drawn face on any platform, or bring a single frontal photo to life
 on the web.
 
+**[Live demo: lipsync.azanello.com](https://lipsync.azanello.com)**: turn on
+your microphone and the photo lip-syncs to your voice.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/AleSZanello/avatar_lipsync/main/doc/media/talking.gif" width="360" alt="A photo of a woman lip-syncing to speech in real time: her mouth opens and closes with each syllable, and she blinks and moves her head slightly.">
+  <img src="https://raw.githubusercontent.com/AleSZanello/avatar_lipsync/main/doc/media/rig.gif" width="360" alt="The same photo with the triangle mesh drawn over it and a heat map that lights up the jaw and lips as they move while she talks.">
+</p>
+<p align="center"><sub>Photo: <a href="https://www.instagram.com/micaela_valente/">@micaela_valente</a>. Right: the rig overlay (mesh and live-motion heat map).</sub></p>
+
 - **Works ahead of the sound.** Each audio chunk is analysed when it is
   scheduled, before it is heard, so the mouth is never late.
 - **A real mouth model.** The jaw follows loudness and the lips follow
@@ -158,6 +167,27 @@ PhotoLipSyncAvatar(
 )
 ```
 
+### See the rig
+
+`PhotoLipSyncAvatar` can draw how it animates the photo: the triangle mesh,
+the 478 MediaPipe landmarks, and a heat map of what moves.
+
+```dart
+PhotoLipSyncAvatar(
+  source: source,
+  imageAsset: 'assets/face.jpg',
+  overlay: const RigOverlay(
+    mesh: true,
+    landmarks: true,
+    heat: RigRegion.motion, // or jaw, lips, corners, eyelids, brows, head
+  ),
+)
+```
+
+`RigRegion.motion` shows how far each point moves right now, with the
+head's own sway taken out, so you see the mouth, lids and brows working.
+The other regions show the rig's weight fields (`FaceRig.weights`).
+
 ### 3. Drive your own character
 
 Both widgets call `onFrame` with a `LipSyncFrame` on every animation frame:
@@ -177,6 +207,13 @@ LipSyncAvatar(
 
 To skip the widgets entirely, run `LipSyncDriver(source)` and call
 `tick(dt)` from your own `Ticker`.
+
+## Mirror the microphone
+
+[`example/lib/sources/mic_speech_source.dart`](example/lib/sources/mic_speech_source.dart)
+is a `LipSyncSource` over the microphone, the one the live demo uses. An
+AudioWorklet hands over 20 ms chunks and nothing is played back, so the
+avatar mirrors whoever talks with no echo.
 
 ## Example
 
@@ -238,6 +275,8 @@ Working with an AI coding agent? See [AGENTS.md](AGENTS.md).
 
 ## Credits
 
+- Demo and README photo: [@micaela_valente](https://www.instagram.com/micaela_valente/),
+  used with permission. It is not part of the published package.
 - `test/fixtures/face.jpg` and `example/assets/face.jpg`: "Portrait de Blanche
   Angers, actrice" (Bacard fils, Paris, c. 1880), Paris Musées / Musée
   Carnavalet, CC0, via
