@@ -9,6 +9,7 @@ import 'package:avatar_lipsync/src/face/face_landmark_detector.dart';
 import 'package:avatar_lipsync/src/face/face_landmarks.dart';
 import 'package:avatar_lipsync/src/face/face_rig.dart';
 import 'package:avatar_lipsync/src/face/mouth_palette.dart';
+import 'package:avatar_lipsync/src/face/rig_overlay.dart';
 import 'package:avatar_lipsync/src/lip_sync_analyzer.dart';
 import 'package:avatar_lipsync/src/lip_sync_driver.dart';
 import 'package:avatar_lipsync/src/lip_sync_source.dart';
@@ -35,6 +36,7 @@ class PhotoLipSyncAvatar extends StatefulWidget {
     this.detector,
     this.fallback,
     this.showDebug = false,
+    this.overlay = RigOverlay.none,
     this.onFrame,
     this.imageLoader,
     super.key,
@@ -54,6 +56,10 @@ class PhotoLipSyncAvatar extends StatefulWidget {
 
   /// Prints the live viseme, loudness, delay and frame times on the photo.
   final bool showDebug;
+
+  /// Draws the rig on top of the photo (mesh, landmarks, heat map), to show
+  /// how the face is animated.
+  final RigOverlay overlay;
 
   /// Called with every mouth frame.
   final ValueChanged<LipSyncFrame>? onFrame;
@@ -224,6 +230,7 @@ class _PhotoLipSyncAvatarState extends State<PhotoLipSyncAvatar>
         rig: rig,
         state: _state,
         palette: _palette,
+        overlay: widget.overlay,
       ),
     );
     if (!widget.showDebug || rig == null) return face;
@@ -307,7 +314,10 @@ class _PhotoPainter extends CustomPainter {
     required this.state,
     this.rig,
     this.palette = MouthPalette.fallback,
+    this.overlay = RigOverlay.none,
   }) : super(repaint: state);
+
+  final RigOverlay overlay;
 
   final ui.Image image;
   final FaceRig? rig;
@@ -363,6 +373,9 @@ class _PhotoPainter extends CustomPainter {
       );
       vertices.dispose();
       _paintMouth(canvas, rig, s!.frame);
+      if (!overlay.isEmpty) {
+        paintRigOverlay(canvas, rig, positions, overlay, scale);
+      }
     }
     canvas.restore();
   }
@@ -560,5 +573,6 @@ class _PhotoPainter extends CustomPainter {
   bool shouldRepaint(_PhotoPainter oldDelegate) =>
       oldDelegate.image != image ||
       oldDelegate.rig != rig ||
-      oldDelegate.palette != palette;
+      oldDelegate.palette != palette ||
+      oldDelegate.overlay != overlay;
 }

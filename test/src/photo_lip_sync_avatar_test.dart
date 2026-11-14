@@ -55,6 +55,34 @@ void main() {
       expect(find.byType(CustomPaint), findsWidgets);
     });
 
+    testWidgets('draws every overlay while talking', (tester) async {
+      final source = FakeSource()..audibleTime = 0;
+      for (final overlay in [
+        const RigOverlay(mesh: true, landmarks: true),
+        for (final region in RigRegion.values) RigOverlay(heat: region),
+      ]) {
+        await tester.pumpWidget(
+          _wrap(
+            PhotoLipSyncAvatar(
+              key: ValueKey(overlay),
+              source: source,
+              imageAsset: facePhoto,
+              detector: FixtureDetector(),
+              imageLoader: loadFixtureImage,
+              overlay: overlay,
+            ),
+          ),
+        );
+        await _settle(tester);
+        source.schedule(vowel(Viseme.a, seconds: 0.3));
+        for (var i = 0; i < 8; i++) {
+          source.audibleTime = i / 60;
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        expect(tester.takeException(), isNull);
+      }
+    });
+
     testWidgets('shows the fallback when no face is found', (tester) async {
       await tester.pumpWidget(
         _wrap(

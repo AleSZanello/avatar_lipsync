@@ -12,6 +12,7 @@ export 'src/face/face_landmark_detector.dart';
 export 'src/face/face_landmarks.dart';
 export 'src/face/face_rig.dart';
 export 'src/face/mouth_palette.dart';
+export 'src/face/rig_overlay.dart';
 export 'src/lip_sync_analyzer.dart';
 export 'src/lip_sync_avatar.dart';
 export 'src/lip_sync_driver.dart';
