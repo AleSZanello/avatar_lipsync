@@ -47,6 +47,7 @@ jobs:
           flutter pub get
           flutter analyze
           flutter test
+          flutter build web
 
       - run: flutter pub publish --dry-run
 
