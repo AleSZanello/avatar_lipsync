@@ -1,3 +1,12 @@
+## 0.2.0
+
+- `pcm16ToSamples`: converts little-endian 16-bit PCM, as OpenAI Realtime
+  and Gemini Live stream it, to samples for a `SpeechChunk`.
+- README: recipe for realtime voice models (OpenAI Realtime, Gemini Live).
+- Example: `WebAudioSpeechSource.playPcm16`, a short fade on `stop()`, a
+  scheduling lead after gaps, and a latency fix for Safari, which has no
+  `outputLatency`.
+
 ## 0.1.1
 
 - Example: uses `package:material_ui`, since `package:flutter/material.dart`

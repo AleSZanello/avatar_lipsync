@@ -29,6 +29,7 @@ Public API (everything is exported from `package:avatar_lipsync/avatar_lipsync.d
 | Type | Role |
 | --- | --- |
 | `LipSyncSource` | Interface the app implements: `chunks`, `flushes`, `audibleTime`. |
+| `pcm16ToSamples` | Little-endian PCM16 bytes (what realtime voice APIs stream) to -1..1 floats. |
 | `SpeechChunk` | Mono `Float32List` samples in -1..1, `startTime` (s, player clock) and `sampleRate`. |
 | `LipSyncAvatar` | Drawn face. Needs `source` and `colors` (`LipSyncAvatarColors`). |
 | `PhotoLipSyncAvatar` | Rigged photo (web). Needs `source` and `imageAsset`. Takes `fallback`, `detector`, `onFrame`, `showDebug` and `imageLoader`. |
@@ -66,6 +67,15 @@ Reference implementations live in `example/lib/sources/`:
 - `clock_speech_source.dart` keeps a `Stopwatch` clock and plays nothing. Use
   it for tests, previews, or when another player plays the sound but you
   still have the samples.
+
+Realtime voice models (OpenAI Realtime over WebSocket, Gemini Live): see
+the "Realtime voice models" section of `README.md`. Feed every audio delta
+to `playPcm16(bytes, 24000)` as it arrives and call `stop()` on barge-in
+(Gemini: `serverContent.interrupted`; OpenAI:
+`input_audio_buffer.speech_started`). Gemini has been reported to skip
+`interrupted` when the user was already speaking as the model's turn
+began, so if the app detects speech on its own side, stop there too.
+OpenAI over WebRTC gives no samples, so use the WebSocket transport.
 
 Other players (`just_audio`, `audioplayers`, native) work if you can get the
 **samples** and a **position clock**. Emit the samples (decoded) with their
@@ -142,7 +152,7 @@ Releasing (automated, `.github/workflows/publish.yml`):
 2. Commit and push to `main`.
 3. `git tag vX.Y.Z && git push origin vX.Y.Z`. The tag must match the
    pubspec version. The workflow checks format, analyze and tests (package
-   and example), runs a dry run, and publishes to pub.dev through GitHub
+   and example), builds the example for the web, runs a dry run, and publishes to pub.dev through GitHub
    OIDC. There are no secrets to manage.
 4. To validate without publishing, run the workflow by hand
    (`gh workflow run publish.yml`). The publish step only runs on tags.

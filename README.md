@@ -73,7 +73,62 @@ With a real player, the rules are:
 3. Emit the cut time on `flushes` when playback is interrupted.
 
 [`example/lib/sources/web_audio_speech_source.dart`](example/lib/sources/web_audio_speech_source.dart)
-does this over Web Audio in about 100 lines.
+does this over Web Audio in about 150 lines.
+
+### Realtime voice models (OpenAI Realtime, Gemini Live)
+
+I built this to give a face to voice bots running on realtime models. Both
+APIs stream the model's voice as base64 PCM16, mono, 24 kHz: hand each chunk
+to your source the moment it arrives, and stop on barge-in.
+`pcm16ToSamples` converts the bytes; the example's
+[`WebAudioSpeechSource`](example/lib/sources/web_audio_speech_source.dart)
+wraps it as `playPcm16`.
+
+**Gemini Live** (every server message from your WebSocket or SDK):
+
+```dart
+void onGeminiMessage(WebAudioSpeechSource source, Map<String, Object?> msg) {
+  if (msg case {'serverContent': {'interrupted': true}}) {
+    return source.stop(); // barge-in
+  }
+  if (msg case {
+    'serverContent': {'modelTurn': {'parts': final List<Object?> parts}},
+  }) {
+    for (final part in parts) {
+      if (part case {'inlineData': {'data': final String audio}}) {
+        unawaited(source.playPcm16(base64Decode(audio), 24000));
+      }
+    }
+  }
+}
+```
+
+**OpenAI Realtime** (WebSocket transport; over WebRTC the audio arrives as a
+media track and its samples are not available):
+
+```dart
+void onOpenAIEvent(WebAudioSpeechSource source, Map<String, Object?> event) {
+  switch (event) {
+    // 'response.audio.delta' is the beta API's name for the same event.
+    case {
+      'type': 'response.output_audio.delta' || 'response.audio.delta',
+      'delta': final String audio,
+    }:
+      unawaited(source.playPcm16(base64Decode(audio), 24000));
+    case {'type': 'input_audio_buffer.speech_started'}: // the user talks
+      source.stop();
+  }
+}
+```
+
+Both are in [`example/lib/realtime_recipes.dart`](example/lib/realtime_recipes.dart).
+
+Tips:
+
+- Schedule each chunk the moment it arrives, not when it plays.
+- On barge-in, also tell the model how much was heard (OpenAI:
+  `conversation.item.truncate`), so its transcript matches what was played.
+- Mount the avatar before the first chunk arrives.
 
 ### 2. Show a face
 
