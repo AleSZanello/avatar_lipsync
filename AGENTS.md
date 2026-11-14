@@ -137,7 +137,12 @@ Tests and tools:
   prints viseme statistics for real speech. Use it after changing
   `LipSyncAnalyzer` thresholds.
 
-Releasing:
+Releasing (automated, `.github/workflows/publish.yml`):
 1. Bump `version` in `pubspec.yaml` and add a `CHANGELOG.md` entry.
-2. `dart pub publish --dry-run` with 0 warnings.
-3. `dart pub publish`, then tag `vX.Y.Z` and push the tag.
+2. Commit and push to `main`.
+3. `git tag vX.Y.Z && git push origin vX.Y.Z`. The tag must match the
+   pubspec version. The workflow checks format, analyze and tests (package
+   and example), runs a dry run, and publishes to pub.dev through GitHub
+   OIDC. There are no secrets to manage.
+4. To validate without publishing, run the workflow by hand
+   (`gh workflow run publish.yml`). The publish step only runs on tags.
