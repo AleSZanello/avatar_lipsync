@@ -1,0 +1,18 @@
+# Dart / Flutter
+.dart_tool/
+.packages
+build/
+pubspec.lock
+.flutter-plugins
+.flutter-plugins-dependencies
+coverage/
+
+# Local SDK managers
+.fvm/
+.fvmrc
+
+# IDEs and OS
+.idea/
+*.iml
+.vscode/
+.DS_Store

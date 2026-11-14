@@ -1,0 +1,11 @@
+analyzer:
+  exclude:
+    - build/**
+include: package:very_good_analysis/analysis_options.yaml
+linter:
+  rules:
+    public_member_api_docs: false
+    # Classic constructor names and `{}` bodies are kept on purpose instead of
+    # the Dart 3.13 primary-constructor syntax.
+    unnecessary_type_name_in_constructor: false
+    empty_container_bodies: false

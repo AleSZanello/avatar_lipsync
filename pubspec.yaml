@@ -1,0 +1,35 @@
+name: avatar_lipsync
+description: >-
+  Real-time lip sync for Flutter. Turns streamed speech into mouth shapes and
+  animates a drawn face or a single photo (web, via MediaPipe).
+version: 0.1.0
+repository: https://github.com/AleSZanello/avatar_lipsync
+issue_tracker: https://github.com/AleSZanello/avatar_lipsync/issues
+topics:
+  - lip-sync
+  - avatar
+  - animation
+  - speech
+  - mediapipe
+
+environment:
+  sdk: ^3.13.0
+  flutter: ">=3.47.0"
+
+platforms:
+  android:
+  ios:
+  linux:
+  macos:
+  web:
+  windows:
+
+dependencies:
+  flutter:
+    sdk: flutter
+  web: ^1.1.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  very_good_analysis: ^11.0.0

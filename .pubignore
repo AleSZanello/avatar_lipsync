@@ -1,0 +1,18 @@
+# Everything in .gitignore, plus files that are not part of the package.
+.dart_tool/
+.packages
+build/
+pubspec.lock
+.flutter-plugins
+.flutter-plugins-dependencies
+coverage/
+.fvm/
+.fvmrc
+.idea/
+*.iml
+.vscode/
+.DS_Store
+.github/
+
+# Test fixture photo and its landmarks stay in the repository only.
+test/fixtures/
