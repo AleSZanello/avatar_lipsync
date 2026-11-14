@@ -77,6 +77,32 @@ void main() {
       expect(rig.mouthOutline, hasLength(20));
     });
 
+    test('opening and rounding the mouth leave the eyes and nose alone', () {
+      for (final frame in [
+        _open,
+        const LipSyncFrame(
+          level: 0.8,
+          gap: 0.25,
+          jaw: 0.12,
+          width: -0.3,
+          round: 0.7,
+          press: 0,
+          viseme: Viseme.o,
+        ),
+      ]) {
+        final posed = rig.pose(frame, const AvatarPose());
+        for (final i in [33, 133, 159, 145, 362, 263, 386, 374, 6, 168]) {
+          final moved = (_at(posed, i) - _at(rig.rest, i)).distance;
+          expect(moved, lessThan(0.5), reason: 'landmark $i moved $moved');
+        }
+      }
+      // Nothing between the mouth and the eyes follows the jaw.
+      final jaw = rig.weights(RigRegion.jaw);
+      for (final i in [129, 358, 203, 423, 36, 266]) {
+        expect(jaw[i], lessThan(0.05), reason: 'jaw weight at $i');
+      }
+    });
+
     test('rounding pulls the mouth corners in, spreading pushes them out', () {
       final rest = _at(rig.rest, FaceMeshIndex.mouthCornerRight).dx;
       final round = rig.pose(
@@ -142,6 +168,29 @@ void main() {
       }
     });
 
+    test('a blink closes the whole eye, not just its middle', () {
+      final closed = rig.pose(LipSyncFrame.rest, const AvatarPose(blink: 1));
+      for (final (upper, lower) in [
+        (FaceMeshIndex.firstUpperLid, FaceMeshIndex.firstLowerLid),
+        (FaceMeshIndex.secondUpperLid, FaceMeshIndex.secondLowerLid),
+      ]) {
+        // Skip the corners (shared by both edges).
+        for (var k = 2; k < upper.length - 2; k++) {
+          final open =
+              (_at(rig.rest, lower[k]) - _at(rig.rest, upper[k])).distance;
+          final shut = (_at(closed, lower[k]) - _at(closed, upper[k])).distance;
+          expect(shut, lessThan(open * 0.3), reason: 'lid ${upper[k]}');
+        }
+      }
+      // The brows stay where they are.
+      for (final i in [
+        ...FaceMeshIndex.firstBrow,
+        ...FaceMeshIndex.secondBrow,
+      ]) {
+        expect((_at(closed, i) - _at(rig.rest, i)).distance, lessThan(0.5));
+      }
+    });
+
     test('the head moves while the background stays put', () {
       final posed = rig.pose(
         LipSyncFrame.rest,
@@ -154,6 +203,22 @@ void main() {
       // The image corners are mesh vertices too; they must not move.
       final last = rig.vertexCount - 1;
       expect(_at(posed, last), _at(rig.rest, last));
+    });
+
+    test('exposes the landmarks and a weight field per region', () {
+      expect(rig.landmarkCount, landmarks.points.length);
+      for (final region in RigRegion.values) {
+        final w = rig.weights(region);
+        expect(w, hasLength(rig.vertexCount), reason: region.name);
+        expect(w.every((v) => v >= 0 && v <= 1), isTrue, reason: region.name);
+        expect(identical(rig.weights(region), w), isTrue, reason: 'cached');
+      }
+      expect(rig.weights(RigRegion.motion).every((v) => v == 0), isTrue);
+      // The jaw pulls the chin, not the forehead.
+      final jaw = rig.weights(RigRegion.jaw);
+      expect(jaw[FaceMeshIndex.chin], greaterThan(0.5));
+      expect(jaw[10], 0);
+      expect(rig.weights(RigRegion.lips)[FaceMeshIndex.lowerInnerLipMid], 1);
     });
 
     test('brows rise and irises follow the gaze', () {

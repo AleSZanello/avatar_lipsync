@@ -9,6 +9,7 @@ import 'dart:ui';
 import 'package:avatar_lipsync/src/avatar_motion.dart';
 import 'package:avatar_lipsync/src/face/delaunay.dart';
 import 'package:avatar_lipsync/src/face/face_landmarks.dart';
+import 'package:avatar_lipsync/src/face/rig_overlay.dart';
 import 'package:avatar_lipsync/src/lip_sync_analyzer.dart';
 
 /// A photo turned into a deformable mesh, driven by mouth frames and poses.
@@ -29,16 +30,19 @@ class FaceRig {
     required this.indices,
     required this.faceCenter,
     required this.faceHeight,
+    required this.landmarkCount,
     required Offset axisX,
     required Offset axisY,
     required double mouthHalfWidth,
     required double noseToChin,
+    required double smile,
     required _Weights weights,
     required List<_EyeRig> eyes,
   }) : _axisX = axisX,
        _axisY = axisY,
        _halfWidth = mouthHalfWidth,
        _noseToChin = noseToChin,
+       _smile = smile,
        _w = weights,
        _eyes = eyes,
        _posed = Float32List.fromList(rest),
@@ -95,6 +99,9 @@ class FaceRig {
         FaceMeshIndex.firstEyeCorners,
         FaceMeshIndex.firstEyeLids,
         FaceMeshIndex.firstIris,
+        FaceMeshIndex.firstBrow,
+        FaceMeshIndex.firstUpperLid,
+        FaceMeshIndex.firstLowerLid,
         ax,
         ay,
       ),
@@ -103,6 +110,9 @@ class FaceRig {
         FaceMeshIndex.secondEyeCorners,
         FaceMeshIndex.secondEyeLids,
         FaceMeshIndex.secondIris,
+        FaceMeshIndex.secondBrow,
+        FaceMeshIndex.secondUpperLid,
+        FaceMeshIndex.secondLowerLid,
         ax,
         ay,
       ),
@@ -130,18 +140,29 @@ class FaceRig {
 
       // Jaw: everything under the mouth slit drops, sharply between the lips
       // and smoothly out on the cheeks, fading out below the chin.
+      // Toward the corners the split closes: the upper and lower lip edges
+      // meet at the corner's own share (0.45), so the lips' seam near the
+      // corner never tears open beyond the painted mouth.
+      final toCorner = _smoothstep(0.45, 0.95, au);
       double sharp;
       if (isCorner) {
         sharp = 0.45;
       } else if (upperInner.contains(i)) {
-        sharp = 0;
+        sharp = 0.45 * toCorner;
       } else if (lowerInner.contains(i)) {
-        sharp = 1;
+        sharp = 1 - 0.55 * toCorner;
       } else {
-        sharp = v > 0 ? 1 : 0;
+        // Only right at the lips: a little above or below the seam the
+        // split is the plain one again (above stays, below drops), or the
+        // whole column up to the eyes would follow the jaw.
+        final atLips = math.exp(-math.pow(v / 0.3, 2));
+        sharp = v > 0 ? 1 - 0.55 * toCorner * atLips : 0.45 * toCorner * atLips;
       }
       final smooth = _smoothstep(-0.6, 0.9, v);
-      final blend = isCorner ? 0.0 : _smoothstep(0.85, 1.4, au);
+      // Past the corners the split between "drops with the jaw" and "stays"
+      // must be soft: a hard one tears the seam's continuation (or a smile
+      // crease) into a dark line on the cheek when the jaw drops.
+      final blend = isCorner ? 0.0 : _smoothstep(0.7, 1.05, au);
       final vertical = sharp + (smooth - sharp) * blend;
       final horizontal = 1 - _smoothstep(1.5, 2.9, au);
       final neck = v <= chinV ? 1.0 : 1 - _smoothstep(chinV, chinV + 1.1, v);
@@ -176,6 +197,16 @@ class FaceRig {
           ? u * fall
           : u.sign * math.exp(-math.pow((au - 1) / 0.6, 2)) * fall;
 
+      // Smile relaxation: full at the corner, fading over ~0.6 half-widths
+      // into the lips and ~0.9 out over the cheek, more slowly upward (where
+      // the crease runs) than downward.
+      final outward = au - 1;
+      final across2 = outward >= 0
+          ? math.pow(outward / 0.9, 2)
+          : math.pow(outward / 0.6, 2);
+      final up2 = math.pow(v / (v < 0 ? 0.8 : 0.55), 2);
+      weights.relax[i] = math.exp(-(across2 + up2));
+
       for (var e = 0; e < eyes.length; e++) {
         final eye = eyes[e];
         final (lid, brow) = eye.weightsAt(points[i]);
@@ -191,6 +222,7 @@ class FaceRig {
         weights.lowerLip[i] = 0;
         weights.lipRing[i] = 0;
         weights.corners[i] = 0;
+        weights.relax[i] = 0;
       }
     }
 
@@ -220,13 +252,54 @@ class FaceRig {
       indices: Uint16List.fromList(delaunay(points)),
       faceCenter: faceCenter,
       faceHeight: faceHeight,
+      landmarkCount: lm.length,
       axisX: ax,
       axisY: ay,
       mouthHalfWidth: halfWidth,
       noseToChin: (lm[FaceMeshIndex.chin] - lm[FaceMeshIndex.noseTip]).distance,
+      smile: math.max(0, -((cornerL + cornerR) / 2 - mouth).dot(ay)),
       weights: weights,
       eyes: eyes,
     );
+  }
+
+  /// How many of the first vertices are the face landmarks (the rest is a
+  /// grid over the picture).
+  final int landmarkCount;
+
+  /// How strongly each vertex follows [region], 0..1, in vertex order (see
+  /// [rest]). The two eyes are combined. [RigRegion.motion] depends on the
+  /// pose, so it is all zeros here (see `RigOverlay`). Computed once per
+  /// region and shared: do not modify the list.
+  Float32List weights(RigRegion region) =>
+      _weightCache[region] ??= _computeWeights(region);
+
+  final _weightCache = <RigRegion, Float32List>{};
+
+  Float32List _computeWeights(RigRegion region) {
+    Float32List maxOf(List<Float32List> fields) {
+      final out = Float32List(vertexCount);
+      for (final f in fields) {
+        for (var i = 0; i < out.length; i++) {
+          out[i] = math.max(out[i], f[i]);
+        }
+      }
+      return out;
+    }
+
+    return switch (region) {
+      RigRegion.motion => Float32List(vertexCount),
+      RigRegion.jaw => maxOf([_w.jaw]),
+      RigRegion.lips => maxOf([_w.upperLip, _w.lowerLip, _w.lipRing]),
+      RigRegion.corners => maxOf([
+        Float32List.fromList([for (final c in _w.corners) c.abs()]),
+        _w.relax,
+      ]),
+      RigRegion.eyelids => maxOf(_w.blink),
+      RigRegion.brows => maxOf(_w.brow),
+      RigRegion.irises => maxOf(_w.iris),
+      RigRegion.head => maxOf([_w.head]),
+    };
   }
 
   /// Size of the rigged image.
@@ -249,6 +322,11 @@ class FaceRig {
   final Offset _axisY;
   final double _halfWidth;
   final double _noseToChin;
+
+  /// How far the mouth corners sit above the lip seam in the photo (pixels,
+  /// 0 for a neutral or downturned mouth): a smile to relax when the mouth
+  /// articulates.
+  final double _smile;
   final double _restGap;
   final _Weights _w;
   final List<_EyeRig> _eyes;
@@ -282,10 +360,21 @@ class FaceRig {
     // Pressed lips (m, b, p) squeeze toward the seam.
     final press = frame.press.clamp(0.0, 1.0) * 0.02 * mouthWidth;
     final spread = frame.width * _halfWidth;
-    final ring = frame.round.clamp(0.0, 1.0) * 0.02;
+    final round = frame.round.clamp(0.0, 1.0);
+    final ring = round * 0.02;
+    // Measured on photos of one face saying a, e, o, u and m: a smiling
+    // mouth's corners relax back toward the seam as it opens, rounds or
+    // presses (most for o and u, least for e), and rounding pulls them a
+    // little further down as the lips gather.
+    final relax =
+        (frame.gap.clamp(0.0, 0.6) / 0.4 * 0.7 +
+                round +
+                frame.press.clamp(0.0, 1.0) * 0.6)
+            .clamp(0.0, 1.0);
+    final cornerDrop = _smile * relax + round * 0.12 * _halfWidth;
     final blinks = [
       for (final eye in _eyes)
-        (pose.blink + pose.gazeY * 0.3).clamp(-0.25, 1.0) * eye.gap * 0.95,
+        (pose.blink + pose.gazeY * 0.3).clamp(-0.25, 1.0) * eye.gap,
     ];
     final brows = [for (final eye in _eyes) pose.brow * eye.halfWidth * 0.14];
     final gaze = [
@@ -327,6 +416,7 @@ class FaceRig {
       }
       // Faces are not symmetric: one corner moves a little less.
       final c = w.corners[i];
+      along += cornerDrop * w.relax[i];
       final side = spread * c * (c > 0 ? 0.92 : 1.0);
       var px = x + _axisY.dx * along + _axisX.dx * side + dx;
       var py = y + _axisY.dy * along + _axisX.dy * side + dy;
@@ -348,6 +438,22 @@ class FaceRig {
       final i = _cavityOrder[k];
       _cavity[k] = Offset(_posed[i * 2], _posed[i * 2 + 1]);
     }
+    // The opening reaches almost to the outer corners, as a real one does:
+    // ending it at the inner corners leaves the short seam between them
+    // showing as a dark tick beside the open mouth (a "Z" on a smile).
+    Offset at(int i) => Offset(_posed[i * 2], _posed[i * 2 + 1]);
+    const reach = 0.8;
+    final last = FaceMeshIndex.upperInnerLip.length - 1;
+    _cavity[0] = Offset.lerp(
+      _cavity[0],
+      at(FaceMeshIndex.mouthCornerLeft),
+      reach,
+    )!;
+    _cavity[last] = Offset.lerp(
+      _cavity[last],
+      at(FaceMeshIndex.mouthCornerRight),
+      reach,
+    )!;
     final upper = _cavity[_upperMidInOutline];
     final lower = _cavity[_lowerMidInOutline];
     _gap = math.max(0, (lower - upper).dot(_axisY) - _restGap);
@@ -406,6 +512,7 @@ class _Weights {
       head = Float32List(n),
       lipRing = Float32List(n),
       corners = Float32List(n),
+      relax = Float32List(n),
       blink = [Float32List(n), Float32List(n)],
       brow = [Float32List(n), Float32List(n)],
       iris = [Float32List(n), Float32List(n)];
@@ -416,6 +523,11 @@ class _Weights {
   final Float32List head;
   final Float32List lipRing;
   final Float32List corners;
+
+  /// Where a smile relaxes: a broad, soft patch around each mouth corner
+  /// that carries the smile crease and the cheek with the corner, so they
+  /// do not stretch into a line.
+  final Float32List relax;
   final List<Float32List> blink;
   final List<Float32List> brow;
   final List<Float32List> iris;
@@ -429,6 +541,12 @@ class _EyeRig {
     required this.lidTop,
     required this.lidBottom,
     required this.iris,
+    required this.browTop,
+    required this.browBottom,
+    required this.browLeft,
+    required this.browRight,
+    required this.upperEdge,
+    required this.lowerEdge,
     required this.axisX,
     required this.axisY,
   });
@@ -438,6 +556,9 @@ class _EyeRig {
     (int, int) corners,
     (int, int) lids,
     List<int> iris,
+    List<int> brow,
+    List<int> upperLid,
+    List<int> lowerLid,
     Offset ax,
     Offset ay,
   ) {
@@ -447,6 +568,15 @@ class _EyeRig {
     final halfWidth = math.max((b - a).distance / 2, 1);
     final upper = lm[lids.$1];
     final lower = lm[lids.$2];
+    final browU = [for (final i in brow) (lm[i] - center).dot(ax) / halfWidth];
+    final browV = [for (final i in brow) (lm[i] - center).dot(ay) / halfWidth];
+    List<(double, double)> edge(List<int> indices) => [
+      for (final i in indices)
+        (
+          (lm[i] - center).dot(ax) / halfWidth,
+          (lm[i] - center).dot(ay) / halfWidth,
+        ),
+    ]..sort((p, q) => p.$1.compareTo(q.$1));
     return _EyeRig(
       center: center,
       halfWidth: halfWidth.toDouble(),
@@ -454,6 +584,12 @@ class _EyeRig {
       lidTop: (upper - center).dot(ay) / halfWidth,
       lidBottom: math.max((lower - center).dot(ay) / halfWidth, 0.05),
       iris: iris.toSet(),
+      browTop: browV.reduce(math.min),
+      browBottom: browV.reduce(math.max),
+      browLeft: browU.reduce(math.min),
+      browRight: browU.reduce(math.max),
+      upperEdge: edge(upperLid),
+      lowerEdge: edge(lowerLid),
       axisX: ax,
       axisY: ay,
     );
@@ -465,34 +601,77 @@ class _EyeRig {
   final double lidTop;
   final double lidBottom;
   final Set<int> iris;
+
+  /// The brow's extent, in eye half-widths from the eye centre (v grows
+  /// downward).
+  final double browTop;
+  final double browBottom;
+  final double browLeft;
+  final double browRight;
+
+  /// The lid edges as (u, v) points sorted by u, in eye half-widths.
+  final List<(double, double)> upperEdge;
+  final List<(double, double)> lowerEdge;
   final Offset axisX;
   final Offset axisY;
 
   /// (eyelid weight, brow weight) of a vertex at [p].
+  ///
+  /// Measured on a pair of photos (eyes open and closed): the upper lid
+  /// travels the whole opening, the lower lid hardly moves, and the skin
+  /// above the lid follows only near its edge (about 20% a quarter of an
+  /// eye half-width up, nothing from three quarters up), so the brow stays
+  /// put while the eye closes.
   (double, double) weightsAt(Offset p) {
     final d = p - center;
     final u = d.dot(axisX) / halfWidth;
     final v = d.dot(axisY) / halfWidth;
-    final au = u.abs();
 
+    // Each column of the eye closes on its own: the upper edge travels down
+    // to the lower edge right below it (a blink of 1 moves the middle of
+    // the lid by the middle's opening, so the weight is the local travel
+    // over that). The opening between them squeezes onto the lower lid.
     var lid = 0.0;
-    if (au < 1) {
-      final across = math.pow(math.cos(au * math.pi / 2), 0.6).toDouble();
-      if (v <= lidTop) {
-        lid = _smoothstep(lidTop - 1.3, lidTop, v);
-      } else if (v <= lidBottom) {
-        lid = 1 - (v - lidTop) / (lidBottom - lidTop);
+    final top = _edgeAt(upperEdge, u);
+    final bottom = _edgeAt(lowerEdge, u);
+    final mid = lidBottom - lidTop;
+    if (top != null && bottom != null && bottom > top && mid > 0) {
+      if (v <= top) {
+        lid = (bottom - top) / mid * math.exp(-math.pow((top - v) / 0.2, 2));
+      } else if (v <= bottom) {
+        lid = (bottom - v) / mid;
       }
-      lid *= across;
     }
 
+    // The brow band (from its landmarks) moves whole; the forehead above
+    // follows part of the way and the skin below stretches down to the lid
+    // crease, which stays.
     var brow = 0.0;
-    if (v < lidTop) {
-      final mid = lidTop - 0.95;
-      brow =
-          math.exp(-math.pow((v - mid) / 0.55, 2)) *
-          (1 - _smoothstep(0.9, 1.7, au));
+    final crease = browBottom + (lidTop - browBottom) * 0.6;
+    if (v < crease) {
+      final vertical = v < browTop
+          ? math.exp(-math.pow((browTop - v) / 0.7, 2))
+          : v <= browBottom
+          ? 1.0
+          : 1 - _smoothstep(browBottom, crease, v);
+      final outside = math.max(browLeft - u, u - browRight);
+      final horizontal = outside <= 0 ? 1.0 : 1 - _smoothstep(0, 0.45, outside);
+      brow = vertical * horizontal;
     }
     return (lid, brow);
+  }
+
+  /// The v of a lid edge at u (linear between its points), or null outside.
+  static double? _edgeAt(List<(double, double)> edge, double u) {
+    if (u < edge.first.$1 || u > edge.last.$1) return null;
+    for (var k = 1; k < edge.length; k++) {
+      final (u1, v1) = edge[k];
+      if (u <= u1) {
+        final (u0, v0) = edge[k - 1];
+        final t = u1 == u0 ? 0.0 : (u - u0) / (u1 - u0);
+        return v0 + (v1 - v0) * t;
+      }
+    }
+    return edge.last.$2;
   }
 }

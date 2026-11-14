@@ -3,10 +3,11 @@
 /// Each carries its articulation target, in face units so any face can use
 /// it: [gap] and [widthChange] in neutral mouth widths (W), [jaw] in
 /// nose-to-chin distances (H). The numbers follow measured speech geometry
-/// (JALI; the Oculus and Rhubarb viseme sets): an "a" parts the lips about
-/// 0.4 W and drops the chin about 0.11 H, a "u" barely parts them and pulls
-/// the corners in by about a quarter (measured rounding is up to 30%; a
-/// little less reads better on a flat photo, where it cannot protrude).
+/// (JALI; the Oculus and Rhubarb viseme sets), checked against photos of
+/// one face holding each vowel: an "a" parts the lips about 0.4 W and drops
+/// the chin about 0.16 H (posed, 0.22 H; speech opens less), an "o" pulls
+/// the corners in by about 30% and a "u" barely parts the lips but rounds
+/// them as much.
 ///
 /// [attack] and [release] are how fast a shape takes over and lets go:
 /// rounding lingers into the next sound (coarticulation), fricatives come
@@ -18,8 +19,8 @@ enum Viseme {
   /// Wide open (a).
   a(
     gap: 0.40,
-    jaw: 0.11,
-    widthChange: 0.05,
+    jaw: 0.16,
+    widthChange: 0,
     round: 0,
     attack: 0.05,
     release: 0.12,
@@ -28,7 +29,7 @@ enum Viseme {
   /// Open and spread (e).
   e(
     gap: 0.20,
-    jaw: 0.06,
+    jaw: 0.08,
     widthChange: 0.10,
     round: 0,
     attack: 0.05,
@@ -48,8 +49,8 @@ enum Viseme {
   /// Rounded and open (o).
   o(
     gap: 0.25,
-    jaw: 0.07,
-    widthChange: -0.20,
+    jaw: 0.12,
+    widthChange: -0.30,
     round: 0.7,
     attack: 0.06,
     release: 0.18,
@@ -58,7 +59,7 @@ enum Viseme {
   /// Small and rounded (u).
   u(
     gap: 0.08,
-    jaw: 0.03,
+    jaw: 0.06,
     widthChange: -0.30,
     round: 1,
     attack: 0.06,

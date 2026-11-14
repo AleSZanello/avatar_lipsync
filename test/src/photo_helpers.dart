@@ -8,10 +8,11 @@ import 'package:avatar_lipsync/avatar_lipsync.dart';
 /// The fixture photo (768 × 768) and the landmarks MediaPipe found on it.
 const facePhoto = 'test/fixtures/face.jpg';
 
-FaceLandmarks fixtureLandmarks() {
-  final json = jsonDecode(
-    File('test/fixtures/face_landmarks.json').readAsStringSync(),
-  ) as Map<String, dynamic>;
+FaceLandmarks fixtureLandmarks([
+  String path = 'test/fixtures/face_landmarks.json',
+]) {
+  final json =
+      jsonDecode(File(path).readAsStringSync()) as Map<String, dynamic>;
   final xy = Float32List.fromList([
     for (final v in json['xy'] as List<dynamic>) (v as num).toDouble(),
   ]);
@@ -30,11 +31,17 @@ Future<ui.Image> loadFixtureImage(String path) async {
 }
 
 class FixtureDetector implements FaceLandmarkDetector {
-  FixtureDetector({this.found = true});
+  FixtureDetector({this.found = true, this.landmarksPath});
 
   final bool found;
 
+  /// Landmarks JSON to return instead of the fixture's.
+  final String? landmarksPath;
+
   @override
-  Future<FaceLandmarks?> detectAsset(String assetKey) async =>
-      found ? fixtureLandmarks() : null;
+  Future<FaceLandmarks?> detectAsset(String assetKey) async => found
+      ? (landmarksPath == null
+            ? fixtureLandmarks()
+            : fixtureLandmarks(landmarksPath!))
+      : null;
 }

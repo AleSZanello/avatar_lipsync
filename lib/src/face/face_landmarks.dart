@@ -87,4 +87,22 @@ abstract final class FaceMeshIndex {
 
   /// See [firstIris].
   static const secondIris = [473, 474, 475, 476, 477];
+
+  /// The first eye's upper lid edge, from corner to corner.
+  static const firstUpperLid = [33, 246, 161, 160, 159, 158, 157, 173, 133];
+
+  /// The first eye's lower lid edge, from corner to corner.
+  static const firstLowerLid = [33, 7, 163, 144, 145, 153, 154, 155, 133];
+
+  /// The second eye's upper lid edge, from corner to corner.
+  static const secondUpperLid = [362, 398, 384, 385, 386, 387, 388, 466, 263];
+
+  /// The second eye's lower lid edge, from corner to corner.
+  static const secondLowerLid = [362, 382, 381, 380, 374, 373, 390, 249, 263];
+
+  /// The first eye's brow: its upper and lower edges.
+  static const firstBrow = [70, 63, 105, 66, 107, 46, 53, 52, 65, 55];
+
+  /// The second eye's brow: its upper and lower edges.
+  static const secondBrow = [300, 293, 334, 296, 336, 276, 283, 282, 295, 285];
 }
