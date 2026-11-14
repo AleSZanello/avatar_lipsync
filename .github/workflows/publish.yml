@@ -17,7 +17,7 @@ jobs:
       contents: read
       id-token: write # OIDC token for pub.dev
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # Sets up the pub.dev OIDC credentials (needs id-token: write).
       - uses: dart-lang/setup-dart@v1

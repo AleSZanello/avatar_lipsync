@@ -5,7 +5,7 @@ import 'dart:typed_data';
 import 'package:avatar_lipsync/avatar_lipsync.dart';
 import 'package:avatar_lipsync_example/sources/synthetic_speech.dart';
 import 'package:avatar_lipsync_example/sources/web_audio_speech_source.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:web/web.dart' as web;
 
 void main() => runApp(const MaterialApp(home: DemoPage()));
