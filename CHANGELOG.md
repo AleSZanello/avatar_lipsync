@@ -1,3 +1,9 @@
+## 0.1.1
+
+- Example: uses `package:material_ui`, since `package:flutter/material.dart`
+  is deprecated on the current stable Flutter.
+- Releases are published from GitHub Actions (version tags, OIDC).
+
 ## 0.1.0
 
 First release.
