@@ -1,6 +1,8 @@
 analyzer:
   exclude:
     - build/**
+    # Separate app with its own dependencies (analysed by its own workflow).
+    - demo/**
 include: package:very_good_analysis/analysis_options.yaml
 linter:
   rules:
