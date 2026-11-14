@@ -16,6 +16,7 @@ export 'src/lip_sync_analyzer.dart';
 export 'src/lip_sync_avatar.dart';
 export 'src/lip_sync_driver.dart';
 export 'src/lip_sync_source.dart';
+export 'src/pcm16.dart';
 export 'src/photo_lip_sync_avatar.dart';
 export 'src/speech_timeline.dart';
 export 'src/viseme.dart';
